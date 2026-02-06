@@ -3,7 +3,7 @@
 Локальный проект с LLM‑сервером, Telegram‑ботом, WS API и набором MCP‑серверов.
 Хранение и память — в ClickHouse.
 
-<img src="docs/images/demo.gif" alt="Демо" width="800">
+<img src="docs/images/demo.gif" alt="Демо" width="200">
 
 ### MCP возможности
 - Время: `get_current_time`
