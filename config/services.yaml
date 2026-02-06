@@ -1,0 +1,378 @@
+llama_server:
+  model_path: /data/projects/models
+  model_file: openai_gpt-oss-120b-MXFP4_MOE/openai_gpt-oss-120b-MXFP4_MOE-00001-of-00002.gguf
+  binary_path: /opt/llama.cpp/build/bin/llama-server
+  chat_template_path: /chat_template.jinja
+  host: 0.0.0.0
+  port: 8081
+  args: "--no-mmap --numa distribute -t 16 -fa 1 -ngl 999 --n-cpu-moe 32 --jinja --cache-reuse 256 --slot-save-path /tmp"
+
+ws_api:
+  host: 0.0.0.0
+  port: 8000
+  llama_server_host: llama-server
+  llama_server_port: 8081
+  model: eiris
+  max_tokens: 10000
+  temperature: 0.2
+  cache_reuse: 256
+  history_days_limit: 2
+  mcp_servers:
+    date_time:
+      host: mcp-date-time
+      port: 9001
+    duckduckgo:
+      host: mcp-duckduckgo
+      port: 9002
+    python:
+      host: mcp-python
+      port: 9003
+    system_prompt:
+      host: mcp-system-prompt
+      port: 9014
+    clickhouse:
+      host: mcp-clickhouse
+      port: 9016
+    self_dialog:
+      host: mcp-self-dialog
+      port: 9017
+    user_messages:
+      host: mcp-user-messages
+      port: 9018
+  mcp_tool_map:
+    get_current_time: date_time
+    search: duckduckgo
+    fetch_content: duckduckgo
+    write_file: python
+    read_file: python
+    list_files: python
+    run_python: python
+    pip_install: python
+    delete_file: python
+    make_dir: python
+    get_system_prompt: system_prompt
+    set_system_prompt: system_prompt
+    ch_exec: clickhouse
+    ch_select: clickhouse
+    self_ask: self_dialog
+    send_tg_message: self_dialog
+    list_self_asks: self_dialog
+    update_self_ask: self_dialog
+    delete_self_ask: self_dialog
+    search_user_messages: user_messages
+  tools:
+    - type: function
+      function:
+        name: get_current_time
+        description: "Вернуть текущие дату и время в ISO формате."
+        parameters:
+          type: object
+          properties: {}
+          required: []
+    - type: function
+      function:
+        name: search
+        description: "Поиск в DuckDuckGo."
+        parameters:
+          type: object
+          properties:
+            query:
+              type: string
+            max_results:
+              type: integer
+              default: 10
+          required:
+            - query
+    - type: function
+      function:
+        name: fetch_content
+        description: "Получить и очистить текст со страницы по URL."
+        parameters:
+          type: object
+          properties:
+            url:
+              type: string
+          required:
+            - url
+    - type: function
+      function:
+        name: write_file
+        description: "Сохранить файл в рабочей директории."
+        parameters:
+          type: object
+          properties:
+            path:
+              type: string
+            content:
+              type: string
+          required:
+            - path
+            - content
+    - type: function
+      function:
+        name: read_file
+        description: "Прочитать файл в рабочей директории."
+        parameters:
+          type: object
+          properties:
+            path:
+              type: string
+          required:
+            - path
+    - type: function
+      function:
+        name: list_files
+        description: "Список файлов и папок."
+        parameters:
+          type: object
+          properties:
+            path:
+              type: string
+          required:
+            - path
+    - type: function
+      function:
+        name: run_python
+        description: "Запустить python-скрипт."
+        parameters:
+          type: object
+          properties:
+            path:
+              type: string
+            args:
+              type: array
+              items:
+                type: string
+            timeout_sec:
+              type: integer
+              default: 60
+            max_output_chars:
+              type: integer
+              default: 200000
+          required:
+            - path
+    - type: function
+      function:
+        name: pip_install
+        description: "Установить пакеты в venv."
+        parameters:
+          type: object
+          properties:
+            packages:
+              type: array
+              items:
+                type: string
+            timeout_sec:
+              type: integer
+              default: 60
+            max_output_chars:
+              type: integer
+              default: 200000
+          required:
+            - packages
+    - type: function
+      function:
+        name: delete_file
+        description: "Удалить файл."
+        parameters:
+          type: object
+          properties:
+            path:
+              type: string
+          required:
+            - path
+    - type: function
+      function:
+        name: make_dir
+        description: "Создать папку."
+        parameters:
+          type: object
+          properties:
+            path:
+              type: string
+          required:
+            - path
+    - type: function
+      function:
+        name: ch_exec
+        description: "Выполнить SQL запрос (DDL/DML)."
+        parameters:
+          type: object
+          properties:
+            query:
+              type: string
+          required:
+            - query
+    - type: function
+      function:
+        name: ch_select
+        description: "SELECT запрос в ClickHouse с лимитом."
+        parameters:
+          type: object
+          properties:
+            query:
+              type: string
+            limit:
+              type: integer
+              default: 10
+          required:
+            - query
+    - type: function
+      function:
+        name: self_ask
+        description: "Задать вопрос самой себе (отдельная сессия)."
+        parameters:
+          type: object
+          properties:
+            question:
+              type: string
+            delay_sec:
+              type: integer
+              default: 0
+            schedule:
+              type: boolean
+              default: false
+            cron:
+              type: string
+              default: ""
+          required:
+            - question
+    - type: function
+      function:
+        name: send_tg_message
+        description: "Отправить сообщение пользователю в Telegram."
+        parameters:
+          type: object
+          properties:
+            user_id:
+              type: integer
+            text:
+              type: string
+          required:
+            - user_id
+            - text
+    - type: function
+      function:
+        name: list_self_asks
+        description: "Список вопросов на расписании."
+        parameters:
+          type: object
+          properties:
+            active_only:
+              type: boolean
+              default: true
+            limit:
+              type: integer
+              default: 100
+          required: []
+    - type: function
+      function:
+        name: update_self_ask
+        description: "Изменить вопрос на расписании."
+        parameters:
+          type: object
+          properties:
+            id:
+              type: string
+            question:
+              type: string
+            delay_sec:
+              type: integer
+            cron:
+              type: string
+            active:
+              type: integer
+          required:
+            - id
+    - type: function
+      function:
+        name: delete_self_ask
+        description: "Удалить вопрос с расписания."
+        parameters:
+          type: object
+          properties:
+            id:
+              type: string
+            optimize:
+              type: boolean
+              default: true
+          required:
+            - id
+    - type: function
+      function:
+        name: search_user_messages
+        description: "Векторный поиск сообщений пользователя."
+        parameters:
+          type: object
+          properties:
+            query:
+              type: string
+            user_id:
+              type: integer
+            limit:
+              type: integer
+              default: 15
+          required:
+            - query
+            - user_id
+    - type: function
+      function:
+        name: get_system_prompt
+        description: "Прочитать системный промпт."
+        parameters:
+          type: object
+          properties: {}
+          required: []
+    - type: function
+      function:
+        name: set_system_prompt
+        description: "Записать системный промпт."
+        parameters:
+          type: object
+          properties:
+            content:
+              type: string
+          required:
+            - content
+  history_db: eiris
+  history_table: chat_messages
+  history_limit: 1000
+
+bot:
+  ws_url: ws://ws-api:8000/ws
+  tg_allowed_usernames:
+    - chubukov
+    - alekhno_maxim
+    - nina_dzhanashiya
+  tg_edit_throttle_sec: 2.0
+  tg_placeholder: "🤔"
+  tg_think_limit: 1200
+  tg_final_limit: 3900
+  tg_max_len: 3900
+
+clickhouse:
+  user_memory_db: eiris
+  user_memory_table: user_memory
+
+admin_ui:
+  db: eiris
+  schedule_table: self_dialog_schedule
+  system_prompt_table: system_prompt_state
+  user_memory_table: user_memory
+
+self_dialog:
+  db: eiris
+  schedule_table: self_dialog_schedule
+  history_db: eiris
+  history_table: chat_messages
+  default_session_id: self:default
+
+user_messages:
+  default_limit: 15
+
+python:
+  base_dir: /home
+
+volumes:
+  models_path: /data/projects/models
+  workspace_path: /data/samba/files/eiris

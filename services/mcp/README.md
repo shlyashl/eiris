@@ -1,0 +1,23 @@
+### Инструменты
+- `get_current_time` — текущее время
+- `search` — веб поиск
+- `fetch_content` — текст страницы
+- `write_file` — запись файла
+- `read_file` — чтение файла
+- `list_files` — список файлов
+- `run_python` — запуск python
+- `pip_install` — установка пакетов
+- `delete_file` — удалить файл
+- `make_dir` — создать папку
+- `ch_exec` — SQL исполнение
+- `ch_select` — SQL выборка
+- `self_ask` — само-вопрос
+- `send_tg_message` — отправка в TG
+- `list_self_asks` — список задач
+- `update_self_ask` — обновить задачу
+- `delete_self_ask` — удалить задачу
+- `get_system_prompt` — читать промпт
+- `set_system_prompt` — писать промпт
+- `get_gguf_info` — метаданные модели
+- `search_user_messages` — поиск сообщений
+

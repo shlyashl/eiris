@@ -1,0 +1,207 @@
+services:
+  llama-server:
+    build:
+      context: .
+      dockerfile: services/llama/Dockerfile
+    restart: always
+    environment:
+      CONFIG_PATH: /config/services.yaml
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    volumes:
+      - ./config:/config:ro
+      - ./logs:/logs
+      - ${MODELS_PATH}:${MODELS_PATH}:ro
+    ports:
+      - "8081:8081"
+    networks:
+      - eiris-net
+    runtime: nvidia
+
+  ws-api:
+    build:
+      context: .
+      dockerfile: services/ws_api/Dockerfile
+    restart: always
+    environment:
+      CONFIG_PATH: /config/services.yaml
+      CH_HOST: ${CH_HOST}
+      CH_PORT: ${CH_PORT}
+      CH_USER: ${CH_USER}
+      CH_PASSWORD: ${CH_PASSWORD}
+      CH_SSL: ${CH_SSL}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config:/config:ro
+      - ${WORKSPACE_PATH}:/home:ro
+    depends_on:
+      - llama-server
+    networks:
+      - eiris-net
+
+  bot:
+    build:
+      context: .
+      dockerfile: services/bot/Dockerfile
+    restart: always
+    environment:
+      CONFIG_PATH: /config/services.yaml
+      TG_TOKEN: ${TG_TOKEN}
+    volumes:
+      - ./config:/config:ro
+    depends_on:
+      - ws-api
+    networks:
+      - eiris-net
+
+  admin-ui:
+    build:
+      context: .
+      dockerfile: services/admin_ui/Dockerfile
+    restart: always
+    environment:
+      ADMIN_HOST: 0.0.0.0
+      ADMIN_PORT: 9020
+      CONFIG_PATH: /config/services.yaml
+      CH_HOST: ${CH_HOST}
+      CH_PORT: ${CH_PORT}
+      CH_USER: ${CH_USER}
+      CH_PASSWORD: ${CH_PASSWORD}
+      CH_SSL: ${CH_SSL}
+    ports:
+      - "9020:9020"
+    volumes:
+      - ./config:/config:ro
+    networks:
+      - eiris-net
+
+  mcp-date-time:
+    build:
+      context: .
+      dockerfile: services/mcp/servers/date_time/Dockerfile
+    restart: always
+    environment:
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 9001
+    ports:
+      - "9001:9001"
+    networks:
+      - eiris-net
+
+  mcp-duckduckgo:
+    build:
+      context: .
+      dockerfile: services/mcp/servers/duckduckgo/Dockerfile
+    restart: always
+    environment:
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 9002
+    ports:
+      - "9002:9002"
+    networks:
+      - eiris-net
+
+  mcp-python:
+    build:
+      context: .
+      dockerfile: services/mcp/servers/python/Dockerfile
+    restart: always
+    environment:
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 9003
+      CONFIG_PATH: /config/services.yaml
+    ports:
+      - "9003:9003"
+    volumes:
+      - ./config:/config:ro
+      - ${WORKSPACE_PATH}:/home
+    networks:
+      - eiris-net
+
+  mcp-system-prompt:
+    build:
+      context: .
+      dockerfile: services/mcp/servers/system_prompt/Dockerfile
+    restart: always
+    environment:
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 9014
+      CH_HOST: ${CH_HOST}
+      CH_PORT: ${CH_PORT}
+      CH_USER: ${CH_USER}
+      CH_PASSWORD: ${CH_PASSWORD}
+      CH_SSL: ${CH_SSL}
+    ports:
+      - "9014:9014"
+    volumes:
+      - /data/samba/files/eiris:/home
+    networks:
+      - eiris-net
+
+  mcp-clickhouse:
+    build:
+      context: .
+      dockerfile: services/mcp/servers/clickhouse/Dockerfile
+    restart: always
+    environment:
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 9016
+      CH_HOST: ${CH_HOST}
+      CH_PORT: ${CH_PORT}
+      CH_USER: ${CH_USER}
+      CH_PASSWORD: ${CH_PASSWORD}
+      CH_SSL: ${CH_SSL}
+    ports:
+      - "9016:9016"
+    networks:
+      - eiris-net
+
+  mcp-self-dialog:
+    build:
+      context: .
+      dockerfile: services/mcp/servers/self_dialog/Dockerfile
+    restart: always
+    environment:
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 9017
+      CONFIG_PATH: /config/services.yaml
+      CH_HOST: ${CH_HOST}
+      CH_PORT: ${CH_PORT}
+      CH_USER: ${CH_USER}
+      CH_PASSWORD: ${CH_PASSWORD}
+      CH_SSL: ${CH_SSL}
+      WS_API_URL: ws://ws-api:8000/ws
+      TG_TOKEN: ${TG_TOKEN}
+    ports:
+      - "9017:9017"
+    volumes:
+      - ./config:/config:ro
+    depends_on:
+      - ws-api
+    networks:
+      - eiris-net
+
+  mcp-user-messages:
+    build:
+      context: .
+      dockerfile: services/mcp/servers/user_messages/Dockerfile
+    restart: always
+    environment:
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 9018
+      CONFIG_PATH: /config/services.yaml
+      CH_HOST: ${CH_HOST}
+      CH_PORT: ${CH_PORT}
+      CH_USER: ${CH_USER}
+      CH_PASSWORD: ${CH_PASSWORD}
+      CH_SSL: ${CH_SSL}
+    ports:
+      - "9018:9018"
+    volumes:
+      - ./config:/config:ro
+    networks:
+      - eiris-net
+
+networks:
+  eiris-net:

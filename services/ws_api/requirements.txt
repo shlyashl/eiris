@@ -1,0 +1,5 @@
+fastapi
+pyyaml
+requests
+fastmcp<3
+uvicorn[standard]

@@ -1,0 +1,179 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import re
+import uuid
+from datetime import datetime, timezone
+
+import websockets
+from aiogram import Router, F
+from aiogram.exceptions import TelegramBadRequest
+from aiogram.types import Message
+import telegramify_markdown
+import telegramify_markdown.customize as customize
+customize.strict_markdown = False
+
+_HARMONY_TOKENS_RE = re.compile(r"<\|[^|]*\|>")
+_XML_TAG_RE = re.compile(r"</?(analysis|final|commentary|message)>", re.IGNORECASE)
+
+
+def clean_delta(s: str) -> str:
+    s = _HARMONY_TOKENS_RE.sub("", s)
+    s = _XML_TAG_RE.sub("", s)
+    return s
+
+
+def safe_truncate(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _escape_dots(s: str) -> str:
+    return re.sub(r"(?<!\\)\.", r"\\.", s)
+
+
+def format_for_tg(
+    *,
+    think: str,
+    final: str,
+    tg_think_limit: int,
+    tg_final_limit: int,
+    tg_placeholder: str,
+    max_tg_len: int,
+) -> str:
+    think_s = safe_truncate(think, tg_think_limit).strip()
+    final_s = safe_truncate(final, tg_final_limit).strip()
+    if think_s:
+        raw = f"```\n{think_s}\n```\n{final_s or tg_placeholder}"
+    else:
+        raw = final_s or tg_placeholder
+    rendered = telegramify_markdown.markdownify(raw) or tg_placeholder
+    rendered = _escape_dots(rendered)
+    if len(rendered) > max_tg_len:
+        rendered = rendered[: max_tg_len - 1] + "…"
+        if rendered.endswith("\\"):
+            rendered = rendered[:-1]
+    return rendered
+
+
+async def _stream(
+    ws_url: str,
+    message: Message,
+    prompt: str,
+    *,
+    edit_throttle_sec: float,
+    tg_placeholder: str,
+    tg_think_limit: int,
+    tg_final_limit: int,
+    max_tg_len: int,
+):
+    out = await message.answer(tg_placeholder)
+    acc_think = ""
+    acc_final = ""
+    last_sent = ""
+    last_edit = 0.0
+    final_started = False
+    req_id = uuid.uuid4().hex
+
+    try:
+        async with websockets.connect(ws_url) as ws:
+            user_id = message.from_user.id if message.from_user else 0
+            ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            prompt = f"Пользователь Telegram id={user_id} написал в {ts}:\n{prompt}"
+            await ws.send(
+                json.dumps(
+                    {
+                        "type": "generate",
+                        "id": req_id,
+                        "prompt": prompt,
+                        "session_id": f"tg:{message.chat.id}",
+                        "chat_id": message.chat.id,
+                        "user_id": user_id,
+                        "tg_msg_id": message.message_id,
+                    }
+                )
+            )
+            async def safe_edit(text: str):
+                try:
+                    await out.edit_text(text)
+                except TelegramBadRequest:
+                    await out.edit_text(text, parse_mode=None)
+
+            while True:
+                payload = json.loads(await ws.recv())
+                if payload.get("type") == "delta":
+                    ch = payload.get("channel", "final")
+                    text = clean_delta(payload.get("text") or "")
+                    if not text:
+                        continue
+                    if ch == "commentary" and not final_started:
+                        acc_think += text
+                    else:
+                        acc_final += text
+                        final_started = True
+                    now = asyncio.get_running_loop().time()
+                    if now - last_edit >= edit_throttle_sec:
+                        rendered = format_for_tg(
+                            think="" if final_started else acc_think,
+                            final=acc_final,
+                            tg_think_limit=tg_think_limit,
+                            tg_final_limit=tg_final_limit,
+                            tg_placeholder=tg_placeholder,
+                            max_tg_len=max_tg_len,
+                        )
+                        if rendered != last_sent:
+                            await safe_edit(rendered)
+                            last_sent = rendered
+                            last_edit = now
+                elif payload.get("type") == "done":
+                    break
+            rendered = format_for_tg(
+                think="",
+                final=acc_final,
+                tg_think_limit=tg_think_limit,
+                tg_final_limit=tg_final_limit,
+                tg_placeholder=tg_placeholder,
+                max_tg_len=max_tg_len,
+            )
+            if rendered != last_sent:
+                await safe_edit(rendered)
+    except Exception:
+        await out.edit_text("⚙️ что-то техническое произошло, напиши ещё раз", parse_mode=None)
+
+
+def build_router(
+    ws_url: str,
+    allowed_usernames: list[str] | None,
+    *,
+    edit_throttle_sec: float,
+    tg_placeholder: str,
+    tg_think_limit: int,
+    tg_final_limit: int,
+    max_tg_len: int,
+) -> Router:
+    allowed = (
+        None
+        if allowed_usernames is None
+        else {str(u).lstrip("@").lower() for u in allowed_usernames if u}
+    )
+    router = Router()
+
+    @router.message(F.text)
+    async def on_text(message: Message):
+        if allowed is not None:
+            user = message.from_user
+            username = "" if not user or not user.username else user.username
+            if not username or username.lstrip("@").lower() not in allowed:
+                return
+        await _stream(
+            ws_url,
+            message,
+            message.text,
+            edit_throttle_sec=edit_throttle_sec,
+            tg_placeholder=tg_placeholder,
+            tg_think_limit=tg_think_limit,
+            tg_final_limit=tg_final_limit,
+            max_tg_len=max_tg_len,
+        )
+
+    return router
