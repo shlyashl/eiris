@@ -18,6 +18,6 @@
 - `delete_self_ask` — удалить задачу
 - `get_system_prompt` — читать промпт
 - `set_system_prompt` — писать промпт
-- `get_gguf_info` — метаданные модели
+- `compose_restart` — `docker compose restart` для сервисов проекта; без `services` — все из `compose_control.allowed_services`
 - `search_user_messages` — поиск сообщений
 

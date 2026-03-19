@@ -15,6 +15,9 @@ from services.eiris.common.clickhouse.client import CH
 router = APIRouter()
 logger = get_logger(__name__)
 
+# защита от раздутых строк в chat_messages (ломают скорость и слот)
+_HISTORY_TEXT_MAX = 12000
+
 
 async def _call_mcp_tool(mcp_url: str, name: str, arguments: dict) -> tuple[str, bool]:
     transport = StreamableHttpTransport(url=mcp_url)
@@ -237,7 +240,7 @@ async def ws_llama(ws: WebSocket):
             history = _fetch_rows(
                 f"SELECT ts, role, text FROM {history_db}.{history_table} "
                 f"WHERE chat_id = {int(chat_id)} "
-                f"AND role IN ('user','assistant') "
+                f"AND role IN ('user','assistant','developer') "
                 f"AND ts >= toDateTime(toDate(now()) - {history_days_limit}) "
                 f"ORDER BY ts"
             )
@@ -283,11 +286,13 @@ async def ws_llama(ws: WebSocket):
                     messages.append(
                         {"role": "system", "content": f"Dialog summary (last 3 days):\n{summary_text}"}
                     )
-        messages.extend(
-            {"role": r["role"], "content": r["text"]}
-            for r in history
-            if r["role"] in ("user", "assistant", "system", "developer", "tool")
-        )
+        for r in history:
+            if r["role"] not in ("user", "assistant", "system", "developer", "tool"):
+                continue
+            t = str(r.get("text") or "")
+            if len(t) > _HISTORY_TEXT_MAX:
+                t = t[:_HISTORY_TEXT_MAX]
+            messages.append({"role": r["role"], "content": t})
         messages.append({"role": prompt_role, "content": prompt})
         if session_id:
             new_rows.append(

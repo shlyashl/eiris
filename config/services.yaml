@@ -5,7 +5,7 @@ llama_server:
   chat_template_path: /chat_template.jinja
   host: 0.0.0.0
   port: 8081
-  args: "--no-mmap --numa distribute -t 16 -fa 1 -ngl 999 --n-cpu-moe 32 --jinja --cache-reuse 256 --slot-save-path /tmp"
+  args: "--no-mmap --numa distribute -t 16 -fa 1 -ngl 999 --n-cpu-moe 34 --jinja --cache-reuse 256 --slot-save-path /tmp --perf --metrics --log-timestamps --log-file /logs/llama-server.log"
 
 ws_api:
   host: 0.0.0.0
@@ -39,6 +39,9 @@ ws_api:
     user_messages:
       host: mcp-user-messages
       port: 9018
+    docker_compose:
+      host: mcp-compose-restart
+      port: 9019
   mcp_tool_map:
     get_current_time: date_time
     search: duckduckgo
@@ -60,6 +63,7 @@ ws_api:
     update_self_ask: self_dialog
     delete_self_ask: self_dialog
     search_user_messages: user_messages
+    compose_restart: docker_compose
   tools:
     - type: function
       function:
@@ -97,7 +101,7 @@ ws_api:
     - type: function
       function:
         name: write_file
-        description: "Сохранить файл в рабочей директории."
+        description: "Сохранить файл под /home. Пользовательские файлы — от корня; исходники самой Eiris (репозиторий проекта) — только под префиксом eiris_own_code/"
         parameters:
           type: object
           properties:
@@ -111,7 +115,7 @@ ws_api:
     - type: function
       function:
         name: read_file
-        description: "Прочитать файл в рабочей директории."
+        description: "Прочитать файл под /home. Исходники Eiris: eiris_own_code/"
         parameters:
           type: object
           properties:
@@ -122,7 +126,7 @@ ws_api:
     - type: function
       function:
         name: list_files
-        description: "Список файлов и папок."
+        description: "Список под /home. Код проекта: eiris_own_code/"
         parameters:
           type: object
           properties:
@@ -133,7 +137,7 @@ ws_api:
     - type: function
       function:
         name: run_python
-        description: "Запустить python-скрипт."
+        description: "Запустить скрипт; cwd=/home. Скрипты репозитория: путь eiris_own_code/..."
         parameters:
           type: object
           properties:
@@ -334,17 +338,33 @@ ws_api:
               type: string
           required:
             - content
+    - type: function
+      function:
+        name: compose_restart
+        description: "Перезапуск контейнеров проекта (docker compose restart). Без services — все имена из compose_control.allowed_services; иначе только перечисленные (должны быть в whitelist)."
+        parameters:
+          type: object
+          properties:
+            services:
+              type: array
+              items:
+                type: string
+          required: []
   history_db: eiris
   history_table: chat_messages
   history_limit: 1000
 
 bot:
   ws_url: ws://ws-api:8000/ws
+  tg_api_base_url: http://94.102.127.53
   tg_allowed_usernames:
     - chubukov
     - alekhno_maxim
     - nina_dzhanashiya
+  tg_developer_usernames:
+    - chubukov
   tg_edit_throttle_sec: 2.0
+  tg_stream_rotate_sec: 90
   tg_placeholder: "🤔"
   tg_think_limit: 1200
   tg_final_limit: 3900
@@ -372,6 +392,24 @@ user_messages:
 
 python:
   base_dir: /home
+  # в контейнере mcp-python: корень рабочей зоны = WORKSPACE_PATH; репозиторий Eiris = eiris_own_code/
+
+compose_control:
+  project_name: eiris
+  project_dir: /project
+  compose_file: compose.yaml
+  allowed_services:
+    - llama-server
+    - ws-api
+    - bot
+    - admin-ui
+    - mcp-date-time
+    - mcp-duckduckgo
+    - mcp-python
+    - mcp-system-prompt
+    - mcp-clickhouse
+    - mcp-self-dialog
+    - mcp-user-messages
 
 volumes:
   models_path: /data/projects/models

@@ -116,6 +116,7 @@ services:
     volumes:
       - ./config:/config:ro
       - ${WORKSPACE_PATH}:/home
+      - .:/home/eiris_own_code
     networks:
       - eiris-net
 
@@ -200,6 +201,25 @@ services:
       - "9018:9018"
     volumes:
       - ./config:/config:ro
+    networks:
+      - eiris-net
+
+  mcp-compose-restart:
+    build:
+      context: .
+      dockerfile: services/mcp/servers/compose_restart/Dockerfile
+    restart: always
+    environment:
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 9019
+      CONFIG_PATH: /config/services.yaml
+      COMPOSE_PROJECT_NAME: eiris
+    ports:
+      - "9019:9019"
+    volumes:
+      - ./config:/config:ro
+      - .:/project:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - eiris-net
 
