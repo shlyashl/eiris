@@ -1,11 +1,11 @@
 llama_server:
   model_path: /data/projects/models
-  model_file: openai_gpt-oss-120b-MXFP4_MOE/openai_gpt-oss-120b-MXFP4_MOE-00001-of-00002.gguf
+  model_file: kldzj_gpt-oss-120b-heretic-v2-MXFP4_MOE/kldzj_gpt-oss-120b-heretic-v2-MXFP4_MOE-00001-of-00002.gguf
   binary_path: /opt/llama.cpp/build/bin/llama-server
   chat_template_path: /chat_template.jinja
   host: 0.0.0.0
   port: 8081
-  args: "--no-mmap --numa distribute -t 16 -fa 1 -ngl 999 --n-cpu-moe 34 --jinja --cache-reuse 256 --slot-save-path /tmp --perf --metrics --log-timestamps --log-file /logs/llama-server.log"
+  args: "--no-mmap --numa distribute -t 16 -fa 1 -ngl 999 --n-cpu-moe 34 --jinja --cache-reuse 256 --repeat-last-n 256 --dry-multiplier 0.8 --dry-base 1.75 --dry-allowed-length 2 --dry-penalty-last-n -1 --slot-save-path /tmp --perf --metrics --log-timestamps --log-file /logs/llama-server.log"
 
 ws_api:
   host: 0.0.0.0
@@ -14,8 +14,14 @@ ws_api:
   llama_server_port: 8081
   model: eiris
   max_tokens: 10000
-  temperature: 0.2
   cache_reuse: 256
+  temperature: 1.0
+  top_p: 1.0
+  top_k: 40
+  min_p: 0.01
+  repeat_penalty: 1.08
+  presence_penalty: 0.05
+  frequency_penalty: 0.05
   history_days_limit: 2
   mcp_servers:
     date_time:

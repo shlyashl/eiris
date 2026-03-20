@@ -57,6 +57,12 @@ def _stream_llama_server_chat(
     tools: list[dict],
     max_tokens: int,
     temperature: float,
+    top_p: float,
+    top_k: int,
+    min_p: float,
+    repeat_penalty: float,
+    presence_penalty: float,
+    frequency_penalty: float,
     cache_reuse: int,
     slot_id: int,
     cancel_flag: threading.Event,
@@ -76,6 +82,12 @@ def _stream_llama_server_chat(
         "timings_per_token": True,
         "max_tokens": max_tokens,
         "temperature": temperature,
+        "top_p": top_p,
+        "top_k": top_k,
+        "min_p": min_p,
+        "repeat_penalty": repeat_penalty,
+        "presence_penalty": presence_penalty,
+        "frequency_penalty": frequency_penalty,
         "reasoning_effort": "high",
         "tools": tools,
         "tool_choice": "auto",
@@ -204,6 +216,12 @@ async def ws_llama(ws: WebSocket):
         prompt_role: str,
         max_tokens: int,
         temperature: float,
+        top_p: float,
+        top_k: int,
+        min_p: float,
+        repeat_penalty: float,
+        presence_penalty: float,
+        frequency_penalty: float,
         session_id: str,
         chat_id: int,
         user_id: int,
@@ -337,6 +355,12 @@ async def ws_llama(ws: WebSocket):
                     tools,
                     max_tokens,
                     temperature,
+                    top_p,
+                    top_k,
+                    min_p,
+                    repeat_penalty,
+                    presence_penalty,
+                    frequency_penalty,
                     cache_reuse,
                     slot_id,
                     cancel_flag,
@@ -537,6 +561,13 @@ async def ws_llama(ws: WebSocket):
                 tg_msg_id = int(msg.get("tg_msg_id") or 0)
                 max_tokens = int(os.environ["max_tokens"])
                 temperature = float(os.environ["temperature"])
+                top_p = float(os.environ["top_p"])
+                top_k = int(os.environ["top_k"])
+                min_p = float(os.environ["min_p"])
+                repeat_penalty = float(os.environ["repeat_penalty"])
+                presence_penalty = float(os.environ["presence_penalty"])
+                frequency_penalty = float(os.environ["frequency_penalty"])
+
                 gen_task = asyncio.create_task(
                     run_generate(
                         req_id,
@@ -544,6 +575,12 @@ async def ws_llama(ws: WebSocket):
                         prompt_role,
                         max_tokens,
                         temperature,
+                        top_p,
+                        top_k,
+                        min_p,
+                        repeat_penalty,
+                        presence_penalty,
+                        frequency_penalty,
                         session_id,
                         chat_id,
                         user_id,

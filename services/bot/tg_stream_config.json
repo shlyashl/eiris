@@ -1,0 +1,6 @@
+{
+  "edit_throttle_sec": 2.0,
+  "stream_rotate_sec": 0.0,
+  "max_edits_per_message": 30,
+  "edit_log_limit": 1000
+}
